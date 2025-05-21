@@ -3,17 +3,17 @@ Storing all the information about the current state of chess game.
 Determining valid moves at current state.
 It will keep move log.
 """
-
+import numpy as np
 
 class GameState:
     def __init__(self):
         """
-        Board is an 8x8 2d list, each element in list has 2 characters.
+        Board is an 8x8 numpy array, each element in array has 2 characters.
         The first character represents the color of the piece: 'b' or 'w'.
         The second character represents the type of the piece: 'R', 'N', 'B', 'Q', 'K' or 'p'.
         "--" represents an empty space with no piece.
         """
-        self.board = [
+        self.board = np.array([
             ["bR", "bN", "bB", "bQ", "bK", "bB", "bN", "bR"],
             ["bp", "bp", "bp", "bp", "bp", "bp", "bp", "bp"],
             ["--", "--", "--", "--", "--", "--", "--", "--"],
@@ -21,7 +21,7 @@ class GameState:
             ["--", "--", "--", "--", "--", "--", "--", "--"],
             ["--", "--", "--", "--", "--", "--", "--", "--"],
             ["wp", "wp", "wp", "wp", "wp", "wp", "wp", "wp"],
-            ["wR", "wN", "wB", "wQ", "wK", "wB", "wN", "wR"]]
+            ["wR", "wN", "wB", "wQ", "wK", "wB", "wN", "wR"]], dtype='<U2')
         self.moveFunctions = {"p": self.getPawnMoves, "R": self.getRookMoves, "N": self.getKnightMoves,
                               "B": self.getBishopMoves, "Q": self.getQueenMoves, "K": self.getKingMoves}
         self.white_to_move = True
@@ -44,8 +44,8 @@ class GameState:
         Takes a Move as a parameter and executes it.
         (this will not work for castling, pawn promotion and en-passant)
         """
-        self.board[move.start_row][move.start_col] = "--"
-        self.board[move.end_row][move.end_col] = move.piece_moved
+        self.board[move.start_row, move.start_col] = "--"
+        self.board[move.end_row, move.end_col] = move.piece_moved
         self.move_log.append(move)  # log the move so we can undo it later
         self.white_to_move = not self.white_to_move  # switch players
         # update king's location if moved
@@ -56,15 +56,11 @@ class GameState:
 
         # pawn promotion
         if move.is_pawn_promotion:
-            # if not is_AI:
-            #    promoted_piece = input("Promote to Q, R, B, or N:") #take this to UI later
-            #    self.board[move.end_row][move.end_col] = move.piece_moved[0] + promoted_piece
-            # else:
-            self.board[move.end_row][move.end_col] = move.piece_moved[0] + "Q"
+            self.board[move.end_row, move.end_col] = move.piece_moved[0] + "Q"
 
         # enpassant move
         if move.is_enpassant_move:
-            self.board[move.start_row][move.end_col] = "--"  # capturing the pawn
+            self.board[move.start_row, move.end_col] = "--"  # capturing the pawn
 
         # update enpassant_possible variable
         if move.piece_moved[1] == "p" and abs(move.start_row - move.end_row) == 2:  # only on 2 square pawn advance
@@ -75,13 +71,11 @@ class GameState:
         # castle move
         if move.is_castle_move:
             if move.end_col - move.start_col == 2:  # king-side castle move
-                self.board[move.end_row][move.end_col - 1] = self.board[move.end_row][
-                    move.end_col + 1]  # moves the rook to its new square
-                self.board[move.end_row][move.end_col + 1] = '--'  # erase old rook
+                self.board[move.end_row, move.end_col - 1] = self.board[move.end_row, move.end_col + 1]  # moves the rook
+                self.board[move.end_row, move.end_col + 1] = '--'  # erase old rook
             else:  # queen-side castle move
-                self.board[move.end_row][move.end_col + 1] = self.board[move.end_row][
-                    move.end_col - 2]  # moves the rook to its new square
-                self.board[move.end_row][move.end_col - 2] = '--'  # erase old rook
+                self.board[move.end_row, move.end_col + 1] = self.board[move.end_row, move.end_col - 2]  # moves the rook
+                self.board[move.end_row, move.end_col - 2] = '--'  # erase old rook
 
         self.enpassant_possible_log.append(self.enpassant_possible)
 
@@ -96,8 +90,8 @@ class GameState:
         """
         if len(self.move_log) != 0:  # make sure that there is a move to undo
             move = self.move_log.pop()
-            self.board[move.start_row][move.start_col] = move.piece_moved
-            self.board[move.end_row][move.end_col] = move.piece_captured
+            self.board[move.start_row, move.start_col] = move.piece_moved
+            self.board[move.end_row, move.end_col] = move.piece_captured
             self.white_to_move = not self.white_to_move  # swap players
             # update the king's position if needed
             if move.piece_moved == "wK":
@@ -106,24 +100,23 @@ class GameState:
                 self.black_king_location = (move.start_row, move.start_col)
             # undo en passant move
             if move.is_enpassant_move:
-                self.board[move.end_row][move.end_col] = "--"  # leave landing square blank
-                self.board[move.start_row][move.end_col] = move.piece_captured
+                self.board[move.end_row, move.end_col] = "--"  # leave landing square blank
+                self.board[move.start_row, move.end_col] = move.piece_captured
 
             self.enpassant_possible_log.pop()
             self.enpassant_possible = self.enpassant_possible_log[-1]
 
             # undo castle rights
             self.castle_rights_log.pop()  # get rid of the new castle rights from the move we are undoing
-            self.current_castling_rights = self.castle_rights_log[
-                -1]  # set the current castle rights to the last one in the list
+            self.current_castling_rights = self.castle_rights_log[-1]  # set the current castle rights to the last one in the list
             # undo the castle move
             if move.is_castle_move:
                 if move.end_col - move.start_col == 2:  # king-side
-                    self.board[move.end_row][move.end_col + 1] = self.board[move.end_row][move.end_col - 1]
-                    self.board[move.end_row][move.end_col - 1] = '--'
+                    self.board[move.end_row, move.end_col + 1] = self.board[move.end_row, move.end_col - 1]
+                    self.board[move.end_row, move.end_col - 1] = '--'
                 else:  # queen-side
-                    self.board[move.end_row][move.end_col - 2] = self.board[move.end_row][move.end_col + 1]
-                    self.board[move.end_row][move.end_col + 1] = '--'
+                    self.board[move.end_row, move.end_col - 2] = self.board[move.end_row, move.end_col + 1]
+                    self.board[move.end_row, move.end_col + 1] = '--'
             self.checkmate = False
             self.stalemate = False
 
@@ -325,85 +318,40 @@ class GameState:
 
     def getPawnMoves(self, row, col, moves):
         """
-        Get all the pawn moves for the pawn located at row, col and add the moves to the list.
+        Get all the pawn moves for the pawn located at row, col and add these moves to the list
         """
-        piece_pinned = False
-        pin_direction = ()
-        for i in range(len(self.pins) - 1, -1, -1):
-            if self.pins[i][0] == row and self.pins[i][1] == col:
-                piece_pinned = True
-                pin_direction = (self.pins[i][2], self.pins[i][3])
-                self.pins.remove(self.pins[i])
-                break
+        if self.white_to_move:  # white pawn moves
+            if self.board[row - 1, col] == "--":  # 1 square pawn advance
+                moves.append(Move((row, col), (row - 1, col), self.board))
+                if row == 6 and self.board[row - 2, col] == "--":  # 2 square pawn advance
+                    moves.append(Move((row, col), (row - 2, col), self.board))
+            if col - 1 >= 0:  # capture to the left
+                if self.board[row - 1, col - 1][0] == 'b':  # enemy piece to capture
+                    moves.append(Move((row, col), (row - 1, col - 1), self.board))
+                elif (row - 1, col - 1) == self.enpassant_possible:
+                    moves.append(Move((row, col), (row - 1, col - 1), self.board, is_enpassant_move=True))
+            if col + 1 <= 7:  # capture to the right
+                if self.board[row - 1, col + 1][0] == 'b':  # enemy piece to capture
+                    moves.append(Move((row, col), (row - 1, col + 1), self.board))
+                elif (row - 1, col + 1) == self.enpassant_possible:
+                    moves.append(Move((row, col), (row - 1, col + 1), self.board, is_enpassant_move=True))
 
-        if self.white_to_move:
-            move_amount = -1
-            start_row = 6
-            enemy_color = "b"
-            king_row, king_col = self.white_king_location
-        else:
-            move_amount = 1
-            start_row = 1
-            enemy_color = "w"
-            king_row, king_col = self.black_king_location
-
-        if self.board[row + move_amount][col] == "--":  # 1 square pawn advance
-            if not piece_pinned or pin_direction == (move_amount, 0):
-                moves.append(Move((row, col), (row + move_amount, col), self.board))
-                if row == start_row and self.board[row + 2 * move_amount][col] == "--":  # 2 square pawn advance
-                    moves.append(Move((row, col), (row + 2 * move_amount, col), self.board))
-        if col - 1 >= 0:  # capture to the left
-            if not piece_pinned or pin_direction == (move_amount, -1):
-                if self.board[row + move_amount][col - 1][0] == enemy_color:
-                    moves.append(Move((row, col), (row + move_amount, col - 1), self.board))
-                if (row + move_amount, col - 1) == self.enpassant_possible:
-                    attacking_piece = blocking_piece = False
-                    if king_row == row:
-                        if king_col < col:  # king is left of the pawn
-                            # inside: between king and the pawn;
-                            # outside: between pawn and border;
-                            inside_range = range(king_col + 1, col - 1)
-                            outside_range = range(col + 1, 8)
-                        else:  # king right of the pawn
-                            inside_range = range(king_col - 1, col, -1)
-                            outside_range = range(col - 2, -1, -1)
-                        for i in inside_range:
-                            if self.board[row][i] != "--":  # some piece beside en-passant pawn blocks
-                                blocking_piece = True
-                        for i in outside_range:
-                            square = self.board[row][i]
-                            if square[0] == enemy_color and (square[1] == "R" or square[1] == "Q"):
-                                attacking_piece = True
-                            elif square != "--":
-                                blocking_piece = True
-                    if not attacking_piece or blocking_piece:
-                        moves.append(Move((row, col), (row + move_amount, col - 1), self.board, is_enpassant_move=True))
-        if col + 1 <= 7:  # capture to the right
-            if not piece_pinned or pin_direction == (move_amount, +1):
-                if self.board[row + move_amount][col + 1][0] == enemy_color:
-                    moves.append(Move((row, col), (row + move_amount, col + 1), self.board))
-                if (row + move_amount, col + 1) == self.enpassant_possible:
-                    attacking_piece = blocking_piece = False
-                    if king_row == row:
-                        if king_col < col:  # king is left of the pawn
-                            # inside: between king and the pawn;
-                            # outside: between pawn and border;
-                            inside_range = range(king_col + 1, col)
-                            outside_range = range(col + 2, 8)
-                        else:  # king right of the pawn
-                            inside_range = range(king_col - 1, col + 1, -1)
-                            outside_range = range(col - 1, -1, -1)
-                        for i in inside_range:
-                            if self.board[row][i] != "--":  # some piece beside en-passant pawn blocks
-                                blocking_piece = True
-                        for i in outside_range:
-                            square = self.board[row][i]
-                            if square[0] == enemy_color and (square[1] == "R" or square[1] == "Q"):
-                                attacking_piece = True
-                            elif square != "--":
-                                blocking_piece = True
-                    if not attacking_piece or blocking_piece:
-                        moves.append(Move((row, col), (row + move_amount, col + 1), self.board, is_enpassant_move=True))
+        else:  # black pawn moves
+            if self.board[row + 1, col] == "--":  # 1 square move
+                moves.append(Move((row, col), (row + 1, col), self.board))
+                if row == 1 and self.board[row + 2, col] == "--":  # 2 square move
+                    moves.append(Move((row, col), (row + 2, col), self.board))
+            # captures
+            if col - 1 >= 0:  # capture to left
+                if self.board[row + 1, col - 1][0] == 'w':  # enemy piece to capture
+                    moves.append(Move((row, col), (row + 1, col - 1), self.board))
+                elif (row + 1, col - 1) == self.enpassant_possible:
+                    moves.append(Move((row, col), (row + 1, col - 1), self.board, is_enpassant_move=True))
+            if col + 1 <= 7:  # capture to right
+                if self.board[row + 1, col + 1][0] == 'w':  # enemy piece to capture
+                    moves.append(Move((row, col), (row + 1, col + 1), self.board))
+                elif (row + 1, col + 1) == self.enpassant_possible:
+                    moves.append(Move((row, col), (row + 1, col + 1), self.board, is_enpassant_move=True))
 
     def getRookMoves(self, row, col, moves):
         """
@@ -578,70 +526,47 @@ class Move:
         self.start_col = start_square[1]
         self.end_row = end_square[0]
         self.end_col = end_square[1]
-        self.piece_moved = board[self.start_row][self.start_col]
-        self.piece_captured = board[self.end_row][self.end_col]
+        self.piece_moved = board[self.start_row, self.start_col]
+        self.piece_captured = board[self.end_row, self.end_col]
         # pawn promotion
-        self.is_pawn_promotion = (self.piece_moved == "wp" and self.end_row == 0) or (
-                self.piece_moved == "bp" and self.end_row == 7)
+        self.is_pawn_promotion = (self.piece_moved == 'wp' and self.end_row == 0) or (
+                self.piece_moved == 'bp' and self.end_row == 7)
         # en passant
         self.is_enpassant_move = is_enpassant_move
         if self.is_enpassant_move:
-            self.piece_captured = "wp" if self.piece_moved == "bp" else "bp"
+            self.piece_captured = 'wp' if self.piece_moved == 'bp' else 'bp'
         # castle move
         self.is_castle_move = is_castle_move
-
-        self.is_capture = self.piece_captured != "--"
+        self.is_capture = self.piece_captured != '--'
         self.moveID = self.start_row * 1000 + self.start_col * 100 + self.end_row * 10 + self.end_col
 
     def __eq__(self, other):
-        """
-        Overriding the equals method.
-        """
         if isinstance(other, Move):
             return self.moveID == other.moveID
         return False
 
     def getChessNotation(self):
-        if self.is_pawn_promotion:
-            return self.getRankFile(self.end_row, self.end_col) + "Q"
-        if self.is_castle_move:
-            if self.end_col == 1:
-                return "0-0-0"
-            else:
-                return "0-0"
-        if self.is_enpassant_move:
-            return self.getRankFile(self.start_row, self.start_col)[0] + "x" + self.getRankFile(self.end_row,
-                                                                                                self.end_col) + " e.p."
-        if self.piece_captured != "--":
-            if self.piece_moved[1] == "p":
-                return self.getRankFile(self.start_row, self.start_col)[0] + "x" + self.getRankFile(self.end_row,
-                                                                                                    self.end_col)
-            else:
-                return self.piece_moved[1] + "x" + self.getRankFile(self.end_row, self.end_col)
-        else:
-            if self.piece_moved[1] == "p":
-                return self.getRankFile(self.end_row, self.end_col)
-            else:
-                return self.piece_moved[1] + self.getRankFile(self.end_row, self.end_col)
-
-        # TODO Disambiguating moves
+        # you can add to make this like real chess notation
+        return self.getRankFile(self.start_row, self.start_col) + self.getRankFile(self.end_row, self.end_col)
 
     def getRankFile(self, row, col):
         return self.cols_to_files[col] + self.rows_to_ranks[row]
 
     def __str__(self):
+        # castle move
         if self.is_castle_move:
-            return "0-0" if self.end_col == 6 else "0-0-0"
+            return "O-O" if self.end_col == 6 else "O-O-O"
 
         end_square = self.getRankFile(self.end_row, self.end_col)
-
-        if self.piece_moved[1] == "p":
+        # pawn moves
+        if self.piece_moved[1] == 'p':
             if self.is_capture:
                 return self.cols_to_files[self.start_col] + "x" + end_square
             else:
-                return end_square + "Q" if self.is_pawn_promotion else end_square
+                return end_square
 
+        # piece moves
         move_string = self.piece_moved[1]
         if self.is_capture:
-            move_string += "x"
+            move_string += 'x'
         return move_string + end_square
