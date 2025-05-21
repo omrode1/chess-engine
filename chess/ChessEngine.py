@@ -38,6 +38,10 @@ class GameState:
         self.current_castling_rights = CastleRights(True, True, True, True)
         self.castle_rights_log = [CastleRights(self.current_castling_rights.wks, self.current_castling_rights.bks,
                                                self.current_castling_rights.wqs, self.current_castling_rights.bqs)]
+        # New variables for stalemate detection
+        self.moves_without_capture_or_pawn = 0  # Counter for 50-move rule
+        self.board_positions = []  # List to store board positions for threefold repetition
+        self.board_positions.append(self.board.tobytes())  # Store initial position
 
     def makeMove(self, move):
         """
@@ -84,6 +88,19 @@ class GameState:
         self.castle_rights_log.append(CastleRights(self.current_castling_rights.wks, self.current_castling_rights.bks,
                                                    self.current_castling_rights.wqs, self.current_castling_rights.bqs))
 
+        # Update stalemate detection
+        # Reset counter if there's a capture or pawn move
+        if move.is_capture or move.piece_moved[1] == 'p':
+            self.moves_without_capture_or_pawn = 0
+        else:
+            self.moves_without_capture_or_pawn += 1
+
+        # Store the new board position
+        self.board_positions.append(self.board.tobytes())
+
+        # Check for stalemate conditions
+        self.checkStalemateConditions()
+
     def undoMove(self):
         """
         Undo the last move
@@ -119,6 +136,14 @@ class GameState:
                     self.board[move.end_row, move.end_col + 1] = '--'
             self.checkmate = False
             self.stalemate = False
+
+            # Undo stalemate detection
+            self.board_positions.pop()  # Remove the last board position
+            # Restore the moves counter
+            if move.is_capture or move.piece_moved[1] == 'p':
+                self.moves_without_capture_or_pawn = 0
+            else:
+                self.moves_without_capture_or_pawn -= 1
 
     def updateCastleRights(self, move):
         """
@@ -500,6 +525,24 @@ class GameState:
         if self.board[row][col - 1] == '--' and self.board[row][col - 2] == '--' and self.board[row][col - 3] == '--':
             if not self.squareUnderAttack(row, col - 1) and not self.squareUnderAttack(row, col - 2):
                 moves.append(Move((row, col), (row, col - 2), self.board, is_castle_move=True))
+
+    def checkStalemateConditions(self):
+        """
+        Check for stalemate conditions:
+        1. Threefold repetition
+        2. Fifty-move rule
+        """
+        # Check for threefold repetition
+        current_position = self.board.tobytes()
+        position_count = self.board_positions.count(current_position)
+        if position_count >= 3:
+            self.stalemate = True
+            return
+
+        # Check for fifty-move rule
+        if self.moves_without_capture_or_pawn >= 50:
+            self.stalemate = True
+            return
 
 
 class CastleRights:

@@ -23,7 +23,7 @@ encourage you to visit his YouTube channel and check the whole series by yoursel
 ## TODO
 - [ ] Cleaning up the code - right now it is really messy.
 - [x] Using numpy arrays instead of 2d lists.
-- [ ] Stalemate on 3 repeated moves or 50 moves without capture/pawn advancement.
+- [x] Stalemate on 3 repeated moves or 50 moves without capture/pawn advancement.
 - [ ] Menu to select player vs player/computer.
 - [ ] Allow dragging pieces.
 - [ ] Resolve ambiguating moves (notation).
